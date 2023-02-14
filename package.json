@@ -1,12 +1,11 @@
 {
   "name": "blanco-discord-bot",
   "version": "1.0.0",
-  "main": "src/index.js",
   "engines": {
     "node": ">=16.14.0"
   },
   "scripts": {
-    "start": "nodemon src/core/bot/index.ts"
+    "start": "tsc && node dist/core/bot/index.js"
   },
   "repository": {
     "type": "git",
@@ -26,7 +25,6 @@
     "@typescript-eslint/eslint-plugin": "^5.52.0",
     "@typescript-eslint/parser": "^5.52.0",
     "eslint": "^8.34.0",
-    "nodemon": "^2.0.20",
     "typescript": "^4.9.5"
   }
 }
