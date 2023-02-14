@@ -1,0 +1,19 @@
+{
+  "name": "blanco-discord-bot",
+  "version": "1.0.0",
+  "main": "src/index.js",
+	"engines": {
+		"node": ">=16.14.0"
+	},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LangkaWS/Blanco-Discord-Bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LangkaWS/Blanco-Discord-Bot/issues"
+  },
+  "homepage": "https://github.com/LangkaWS/Blanco-Discord-Bot#readme"
+}
