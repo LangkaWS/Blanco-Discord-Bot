@@ -6,7 +6,7 @@
     "node": ">=16.14.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "nodemon src/core/bot/index.ts"
   },
   "repository": {
     "type": "git",
