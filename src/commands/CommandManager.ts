@@ -2,6 +2,7 @@ import { ApplicationCommand, Client } from 'discord.js';
 import { readdirSync } from 'fs';
 import { readdir } from 'fs/promises';
 import { ICommand } from './ICommand';
+import * as errorUtils from '../core/utils/error';
 
 export class CommandManager {
 
@@ -10,47 +11,60 @@ export class CommandManager {
 
 	/**
 	 * Register all commands
+	 * @param client
 	 */
 	public static async registerAllCommands(client: Client) {
+
 		// Get application commands
-		const commands = (await client.application!.commands.fetch());
-		// Get commands to register
-		const commandsToRegister = await this.getAllCommands();
-
-		// Store command instances
-		if (commands) {
-			for (const command of commands) {
-				CommandManager.commandInstances.set(command[1].name, command[1]);
+		try {
+			if (!client.application) throw new Error('Client application not found');
+			const commands = await client.application.commands.fetch();
+			// Store command instances
+			if (commands) {
+				for (const command of commands) {
+					CommandManager.commandInstances.set(command[1].name, command[1]);
+				}
 			}
+		} catch (error) {
+			errorUtils.handleFatalError('Error while fetching commands', error);
 		}
 
-		const commandsToCheck = [];
+		const commandsToRegister: Promise<void>[] = [];
 
-		for (const commandToRegister of commandsToRegister) {
-			this.setCommandDefaultParameters(commandToRegister);
-			commandsToCheck.push(this.createOrUpdateCommand(client, CommandManager.commandInstances.get(commandToRegister.slashCommandBuilder.name), commandToRegister));
-			CommandManager.commands.set(commandToRegister.slashCommandBuilder.name, commandToRegister);
+		try {
+			// Get commands to register
+			const commandsFromFiles = await CommandManager.getAllCommandsFromFiles();
+
+			// Register new or update exsting commands
+			for (const commandFromFile of commandsFromFiles) {
+				CommandManager.setCommandDefaultParameters(commandFromFile);
+				const registeredCommand = CommandManager.commandInstances.get(commandFromFile.slashCommandBuilder.name);
+				commandsToRegister.push(CommandManager.createOrUpdateCommand(client, registeredCommand, commandFromFile));
+				CommandManager.commands.set(commandFromFile.slashCommandBuilder.name, commandFromFile);
+			}
+		} catch (error) {
+			errorUtils.handleFatalError('Error while getting commands', error);
 		}
-		await Promise.all(commandsToCheck);
-		await this.deleteCommands(client);
-	}
 
-	private static async deleteCommands(client: Client): Promise<void> {
+		try {
+			await Promise.all(commandsToRegister);
+		} catch (error) {
+			errorUtils.handleFatalError('Error while registering commands', error);
+		}
+
+		// Delete commands that have no file
+		const commandsToDelete: Promise<void>[] = [];
 		for (const command of CommandManager.commandInstances.values()) {
-			if (!CommandManager.commandInstances.has(command.name)) {
-				await client.application!.commands.delete(command.id);
-				console.log(`Global command '${command.name}' deleted`);
+			if (!CommandManager.commands.has(command.name)) {
+				commandsToDelete.push(CommandManager.deleteCommand(client, command));
 			}
 		}
-	}
+		try {
+			await Promise.all(commandsToDelete);
+		} catch (error) {
+			errorUtils.handleFatalError('Error while deleting commands', error);
+		}
 
-	/**
-	 * Set command with default parameters
-	 * @param commandInfo
-	 * @private
-	 */
-	private static setCommandDefaultParameters(commandInfo: ICommand): void {
-		commandInfo.slashCommandBuilder.setDMPermission(false);
 	}
 
 	/**
@@ -60,44 +74,47 @@ export class CommandManager {
 	 * @param commandInfo
 	 * @private
 	 */
-	private static async createOrUpdateCommand(client: Client, command: ApplicationCommand|undefined, commandInfo: ICommand): Promise<void> {
-		const hasCommandChanged = command ? CommandManager.hasCommandChanged(commandInfo, command) : true;
-
-		if (!hasCommandChanged) return;
+	private static async createOrUpdateCommand(client: Client, registeredCommand: ApplicationCommand|undefined, commandToRegister: ICommand): Promise<void> {
 
 		try {
-			if (command) {
-				await client.application!.commands.edit(command.id, commandInfo.slashCommandBuilder.toJSON());
-				console.log(`Global command '${commandInfo.slashCommandBuilder.name}' edited`);
+
+			if (registeredCommand) {
+
+				const hasCommandChanged = CommandManager.hasCommandChanged(commandToRegister, registeredCommand);
+
+				if (!hasCommandChanged) return;
+
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				await client.application!.commands.edit(registeredCommand.id, commandToRegister.slashCommandBuilder.toJSON());
+				console.log(`Global command '${commandToRegister.slashCommandBuilder.name}' edited`);
+
 			} else {
-				await client.application!.commands.create(commandInfo.slashCommandBuilder.toJSON());
-				console.log(`Global command '${commandInfo.slashCommandBuilder.name}' created`);
+
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				await client.application!.commands.create(commandToRegister.slashCommandBuilder.toJSON());
+				console.log(`Global command '${commandToRegister.slashCommandBuilder.name}' created`);
+
 			}
+
 		} catch (error) {
-			console.log(error);
-			// Do not start the bot if commands cannot be registered
-			process.exit(1);
+			errorUtils.handleFatalError('Error while registering commands', error);
 		}
 
 	}
 
 	/**
-	 * Check if a command has changed
-	 * @param commandInfo
+	 * Delete command
+	 * @param client
 	 * @param command
-	 * @returns if command has changed
-	 * @private
 	 */
-	private static hasCommandChanged(commandInfo: ICommand, command: ApplicationCommand): boolean {
-		let change = false;
-
-		// Name change
-		change ||= command.name !== commandInfo.slashCommandBuilder.name;
-
-		// Description change
-		change ||= command.description !== commandInfo.slashCommandBuilder.description;
-
-		return change;
+	private static async deleteCommand(client: Client, command: ApplicationCommand): Promise<void> {
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			await client.application!.commands.delete(command.id);
+			console.log(`Global command '${command.name}' deleted`);
+		} catch (error) {
+			errorUtils.handleFatalError('Error while deleting commands', error);
+		}
 	}
 
 	/**
@@ -105,19 +122,33 @@ export class CommandManager {
 	 * @returns commands info
 	 * @private
 	 */
-	private static async getAllCommands(): Promise<ICommand[]> {
+	private static async getAllCommandsFromFiles(): Promise<ICommand[]> {
+
+		const commands: Promise<ICommand[]>[] = [];
+
 		// Get categories
-		const categories = await readdir(`${__dirname}`);
-		const commands = [];
-		for (const category of categories) {
-			if (category.endsWith('.js') || category.endsWith('.js.map')) {
-				continue;
+		try {
+
+			const categories = await readdir(`${__dirname}`);
+			for (const category of categories) {
+				if (category.endsWith('.js') || category.endsWith('.js.map')) {
+					continue;
+				}
+
+				// Get commands of the category
+				commands.push(this.getCommandsFromCategory(category));
 			}
 
-			// Get commands of the category
-			commands.push(this.getCommandsFromCategory(category));
+		} catch (error) {
+			errorUtils.handleFatalError('Error while reading commands directory', error);
 		}
-		const commandsToRegister = await Promise.all(commands);
+
+		let commandsToRegister:ICommand[][] = [];
+		try {
+			commandsToRegister = await Promise.all(commands);
+		} catch (error) {
+			errorUtils.handleFatalError('Error while importing commands info', error);
+		}
 		return commandsToRegister.flat();
 	}
 
@@ -128,7 +159,9 @@ export class CommandManager {
 	 * @private
 	 */
 	private static async getCommandsFromCategory(category: string): Promise<ICommand[]> {
+
 		const commands: ICommand[] = [];
+
 		// Get command files
 		const commandFiles = readdirSync(`${__dirname}/${category}`).filter(command => command.endsWith('.js'));
 
@@ -137,7 +170,7 @@ export class CommandManager {
 			const commandInfo = (await import(`${__dirname}/${category}/${commandFile}`)).commandInfo as ICommand;
 
 			if (!commandInfo || !commandInfo.slashCommandBuilder) {
-				console.error(`Command ${category}/${commandFile} is not a slash command.`);
+				console.error(`Command ${category}/${commandFile} is not a slash command`);
 				continue;
 			}
 
@@ -146,6 +179,29 @@ export class CommandManager {
 		}
 
 		return commands;
+	}
+
+	/**
+	 * Check if a command has changed
+	 * @param commandInfo
+	 * @param command
+	 * @returns if command has changed
+	 * @private
+	 */
+	private static hasCommandChanged(commandInfo: ICommand, command: ApplicationCommand): boolean {
+		return (
+			// Description change
+			command.description !== commandInfo.slashCommandBuilder.description
+		);
+	}
+
+	/**
+	 * Set command with default parameters
+	 * @param commandInfo
+	 * @private
+	 */
+	private static setCommandDefaultParameters(commandInfo: ICommand): void {
+		commandInfo.slashCommandBuilder.setDMPermission(false);
 	}
 
 }
