@@ -1,5 +1,6 @@
 import { Client } from 'discord.js';
 import { CommandManager } from '../../commands/CommandManager';
+import * as errorUtils from '../utils/error';
 
 export class Bot {
 
@@ -10,8 +11,12 @@ export class Bot {
 	}
 
 	public async init(): Promise<void> {
-		// Register commands
-		await CommandManager.registerAllCommands(this.client);
+		try {
+			// Register commands
+			await CommandManager.registerAllCommands(this.client);
+		} catch (error) {
+			errorUtils.handleFatalError('Error while registering commands', error);
+		}
 	}
 
 }

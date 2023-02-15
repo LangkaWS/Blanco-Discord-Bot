@@ -1,6 +1,7 @@
 import { Client } from 'discord.js';
 import { Bot } from './Bot';
 import { loadConfig } from './BotConfig';
+import * as errorUtils from '../utils/error';
 
 export const botConfig = loadConfig();
 
@@ -14,17 +15,22 @@ async function main(): Promise<void> {
 
 	try {
 		await client.login(botConfig.DISCORD_CLIENT_TOKEN);
+		console.log('✔️ Bot successfully logged in');
+	} catch (error) {
+		errorUtils.handleFatalError('Error while logging in bot', error);
+	}
 
-		client.on('ready', () => {
-			console.log((new Date()).toLocaleString());
-			console.log('Blanco is ready to work!');
-		});
+	client.on('ready', async () => {
 
 		const bot = new Bot(client);
-		await bot.init();
-	} catch (error) {
-		console.log(error);
-	}
+		try {
+			await bot.init();
+			console.log('✔️ Bot initialized successfully');
+		} catch (error) {
+			errorUtils.handleFatalError('Error while initializing bot', error);
+		}
+
+	});
 
 }
 
