@@ -36,12 +36,16 @@ export class CommandManager {
 			const commandsFromFiles = await CommandManager.getAllCommandsFromFiles();
 
 			// Register new or update exsting commands
-			for (const commandFromFile of commandsFromFiles) {
+			commandsFromFiles.forEach(commandFromFile => {
+
 				CommandManager.setCommandDefaultParameters(commandFromFile);
+
 				const registeredCommand = CommandManager.commandInstances.get(commandFromFile.slashCommandBuilder.name);
 				commandsToRegister.push(CommandManager.createOrUpdateCommand(client, registeredCommand, commandFromFile));
+
 				CommandManager.commands.set(commandFromFile.slashCommandBuilder.name, commandFromFile);
-			}
+
+			});
 		} catch (error) {
 			errorUtils.handleFatalError('Error while getting commands', error);
 		}
@@ -80,7 +84,7 @@ export class CommandManager {
 
 			if (registeredCommand) {
 
-				const hasCommandChanged = CommandManager.hasCommandChanged(commandToRegister, registeredCommand);
+				const hasCommandChanged = CommandManager.hasCommandChanged(registeredCommand, commandToRegister);
 
 				if (!hasCommandChanged) return;
 
@@ -130,14 +134,12 @@ export class CommandManager {
 		try {
 
 			const categories = await readdir(`${__dirname}`);
-			for (const category of categories) {
-				if (category.endsWith('.js') || category.endsWith('.js.map')) {
-					continue;
-				}
+			categories.forEach(category => {
+				if (category.endsWith('.js') || category.endsWith('.js.map')) return;
 
 				// Get commands of the category
 				commands.push(this.getCommandsFromCategory(category));
-			}
+			});
 
 		} catch (error) {
 			errorUtils.handleFatalError('Error while reading commands directory', error);
@@ -188,11 +190,11 @@ export class CommandManager {
 	 * @returns if command has changed
 	 * @private
 	 */
-	private static hasCommandChanged(commandInfo: ICommand, command: ApplicationCommand): boolean {
 		return (
 			// Description change
 			command.description !== commandInfo.slashCommandBuilder.description
 		);
+	private static hasCommandChanged(command: ApplicationCommand, commandInfo: ICommand): boolean {
 	}
 
 	/**
