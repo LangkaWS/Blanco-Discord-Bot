@@ -1,8 +1,9 @@
-import { ApplicationCommand, Client } from 'discord.js';
+import { ApplicationCommand, Client, SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder } from 'discord.js';
 import { readdirSync } from 'fs';
 import { readdir } from 'fs/promises';
 import { ICommand } from './ICommand';
 import * as errorUtils from '../core/utils/error';
+import { NormalizedObject } from './NormalizedObject';
 
 export class CommandManager {
 
@@ -84,7 +85,7 @@ export class CommandManager {
 
 			if (registeredCommand) {
 
-				const hasCommandChanged = CommandManager.hasCommandChanged(registeredCommand, commandToRegister);
+				const hasCommandChanged = CommandManager.hasCommandChanged(registeredCommand, commandToRegister.slashCommandBuilder);
 
 				if (!hasCommandChanged) return;
 
@@ -184,17 +185,99 @@ export class CommandManager {
 	}
 
 	/**
-	 * Check if a command has changed
-	 * @param commandInfo
-	 * @param command
-	 * @returns if command has changed
-	 * @private
+	 * Check if array from command to register is the same as in registered command
+	 * @param registeredArray the array of registered command
+	 * @param arrayToRegister the array of command to register
+	 * @returns `true` is array has changed
 	 */
-		return (
-			// Description change
-			command.description !== commandInfo.slashCommandBuilder.description
-		);
-	private static hasCommandChanged(command: ApplicationCommand, commandInfo: ICommand): boolean {
+	private static hasArrayChanged(registeredArray: Array<object>, arrayToRegister: Array<object>): boolean {
+
+		// Normalize property names
+		const normalizedRegisteredArray = registeredArray.map(el => CommandManager.normalizePropertyNames(el));
+		const normalizedArrayToRegister = arrayToRegister.map(el => CommandManager.normalizePropertyNames(el));
+
+		if (normalizedRegisteredArray.length !== normalizedArrayToRegister.length) {
+			return true;
+		}
+
+		for (let i = 0; i < normalizedRegisteredArray.length; i++) {
+
+			const obj1 = normalizedRegisteredArray[i];
+			const obj2 = normalizedArrayToRegister[i];
+
+			for (const key in obj2) {
+
+				if (Object.prototype.hasOwnProperty.call(obj1, key) && key !== 'defaultpermission') {
+					if (Array.isArray(obj1[key]) && Array.isArray(obj2[key])) {
+						if (CommandManager.hasArrayChanged(obj1[key], obj2[key])) {
+							return true;
+						}
+						// default_permission is deprecated in SlashCommandBuilder but still exists
+					} else if (key !== 'defaultpermission' && obj1[key] != obj2[key]) {
+						return true;
+					}
+				}
+
+			}
+		}
+
+		return false;
+
+	}
+
+	/**
+	 * Check if command to register is the same as registered command
+	 * @param registeredCommand the registered command
+	 * @param commandtoRegister the command to register
+	 * @returns `true` is command has changed
+	 */
+	private static hasCommandChanged(registeredCommand: ApplicationCommand, commandToRegister: SlashCommandBuilder|SlashCommandSubcommandsOnlyBuilder): boolean {
+
+		// Normalize command property names
+		const normalizedRegisteredCommand = CommandManager.normalizePropertyNames(registeredCommand);
+		const normalizedCommandToRegister = CommandManager.normalizePropertyNames(commandToRegister);
+
+		// Iterate through command to register because it has less properties that registered command
+		const keys2 = Object.keys(normalizedCommandToRegister);
+
+		for (const key of keys2) {
+
+			// If property is not found in registered command
+			if (!(key in normalizedRegisteredCommand) && key !== 'defaultpermission') {
+				return true;
+			}
+
+			if (Array.isArray(normalizedRegisteredCommand[key]) && Array.isArray(normalizedCommandToRegister[key])) {
+				if (CommandManager.hasArrayChanged(normalizedRegisteredCommand[key], normalizedCommandToRegister[key])) {
+					return true;
+				}
+				// default_permission is deprecated in SlashCommandBuilder but still exists
+			} else if (key !== 'defaultpermission' && normalizedRegisteredCommand[key] != normalizedCommandToRegister[key]) {
+				return true;
+			}
+
+		}
+
+		return false;
+
+	}
+
+	/**
+	 * Set all object properties to lower case and remove underscore
+	 * @param obj the object to normalize
+	 * @returns the normalized object
+	 */
+	private static normalizePropertyNames(obj: object) {
+
+		const normalizedObject: NormalizedObject = {};
+
+		for (const [key, value] of Object.entries(obj)) {
+			const normalizedKey = key.toLowerCase().replace(/_/g, '');
+			normalizedObject[normalizedKey] = value;
+		}
+
+		return normalizedObject;
+
 	}
 
 	/**
