@@ -212,6 +212,9 @@ export class CommandManager {
 						if (CommandManager.hasArrayChanged(obj1[key], obj2[key])) {
 							return true;
 						}
+						// some props in SlashCommandBuilder are empty arrays while are undefined on ApplicationCommand
+					} else if (Array.isArray(obj2[key]) && !obj2[key].length && obj1[key] === undefined) {
+						continue;
 						// default_permission is deprecated in SlashCommandBuilder but still exists
 					} else if (key !== 'defaultpermission' && obj1[key] != obj2[key]) {
 						return true;
