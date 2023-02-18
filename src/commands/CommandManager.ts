@@ -339,11 +339,7 @@ export class CommandManager {
 
 		const missingPermissions: Array<string> = [];
 
-		// Store default needed permissions
-		const permissions: Array<keyof typeof PermissionsBitField.Flags> = [
-			'ViewChannel',
-			'SendMessages',
-		];
+		const permissions: Array<keyof typeof PermissionsBitField.Flags> = [];
 
 		// Add additional permissions for command
 		commandInfo.additionalPermissions?.forEach(permission => {
