@@ -1,9 +1,10 @@
-import { ApplicationCommand, Client, SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder } from 'discord.js';
+import { ApplicationCommand, Client, CommandInteraction, GuildChannel, PermissionsBitField, SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder } from 'discord.js';
 import { readdirSync } from 'fs';
 import { readdir } from 'fs/promises';
 import { ICommand } from './ICommand';
 import * as errorUtils from '../core/utils/error';
 import { NormalizedObject } from './NormalizedObject';
+import { botClient } from '../core/bot';
 
 export class CommandManager {
 
@@ -12,6 +13,7 @@ export class CommandManager {
 
 	public static async register(client: Client): Promise<void> {
 		await CommandManager.registerAllCommands(client);
+		CommandManager.manageInteractionCreate(client);
 	}
 
 	/**
@@ -299,6 +301,89 @@ export class CommandManager {
 	 */
 	private static setCommandDefaultParameters(commandInfo: ICommand): void {
 		commandInfo.slashCommandBuilder.setDMPermission(false);
+	}
+
+	/**
+	 * Handle the interaction's command
+	 * @param interaction
+	 * @private
+	 */
+	private static async handleCommand(interaction: CommandInteraction): Promise<void> {
+
+		if (!interaction.commandName) return;
+
+		const commandInfo = CommandManager.commands.get(interaction.commandName);
+		if (!commandInfo) {
+			errorUtils.replyErrorMessage(interaction, 'La commande n\'existe pas');
+			return;
+		}
+
+		const channelAccess = CommandManager.hasChannelPermissions(commandInfo, interaction.channel as GuildChannel);
+		if (channelAccess.length) {
+			errorUtils.replyErrorMessage(interaction, `Permissions manquantes: ${channelAccess.join(', ')}`);
+			return;
+		}
+
+		// log command usage in db
+		await commandInfo.executeCommand(interaction);
+
+	}
+
+	/**
+	 * Check if the bot has the needed permissions in the channel where the command is executed
+	 * @param channel
+	 * @returns the list of missing permissions
+	 * @private
+	 */
+	private static hasChannelPermissions(commandInfo: ICommand, channel: GuildChannel): Array<string> {
+
+		const missingPermissions: Array<string> = [];
+
+		// Store default needed permissions
+		const permissions: Array<keyof typeof PermissionsBitField.Flags> = [
+			'ViewChannel',
+			'SendMessages',
+		];
+
+		// Add additional permissions for command
+		commandInfo.additionalPermissions?.forEach(permission => {
+			if (!permissions.includes(permission)) {
+				permissions.push(permission);
+			}
+		});
+
+		// Remove unnecessary permissions for command
+		commandInfo.unnecessaryPermissions?.forEach(permission => {
+			const index = permissions.indexOf(permission);
+			if (index >= 0) {
+				permissions.splice(index, 1);
+			}
+		});
+
+		permissions.forEach(permission => {
+			// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+			if (!channel.permissionsFor(botClient.user!)?.has(PermissionsBitField.Flags[permission])) {
+				missingPermissions.push(permission);
+			}
+		});
+
+		return missingPermissions;
+
+	}
+
+	/**
+	 * Manage the slash commands
+	 * @param client
+	 * @private
+	 */
+	private static manageInteractionCreate(client: Client): void {
+		client.on('interactionCreate', async interaction => {
+
+			if (!interaction.isCommand() || interaction.user.bot) return;
+
+			await CommandManager.handleCommand(interaction);
+
+		});
 	}
 
 }
