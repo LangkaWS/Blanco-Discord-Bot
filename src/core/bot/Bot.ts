@@ -13,7 +13,7 @@ export class Bot {
 	public async init(): Promise<void> {
 		try {
 			// Register commands
-			await CommandManager.registerAllCommands(this.client);
+			await CommandManager.register(this.client);
 		} catch (error) {
 			errorUtils.handleFatalError('Error while registering commands', error);
 		}
