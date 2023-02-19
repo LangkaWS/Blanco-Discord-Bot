@@ -4,5 +4,6 @@ export abstract class Intents {
 	static readonly LIST =
 		[
 			IntentsBitField.Flags.Guilds,
+			IntentsBitField.Flags.GuildMembers,
 		];
 }
