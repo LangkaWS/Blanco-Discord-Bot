@@ -82,13 +82,11 @@ export class Database {
 	 */
 	private async initModelFromFile(modelFile: string): Promise<void> {
 
-		const models = [];
 		const [modelName, modelSplit] = modelFile.split(/\.(.*)/);
 
 		if (modelSplit !== 'js' || modelSplit.length !== 2) return;
 
 		const model = await import(`./${this.databaseName}/models/${modelName}`);
-		models.push(model);
 
 		if (model.initModel) {
 			try {
