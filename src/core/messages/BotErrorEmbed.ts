@@ -4,9 +4,8 @@ import { BotEmbed } from './BotEmbed';
 
 export class BotErrorEmbed extends BotEmbed {
 
-	constructor(message: string) {
+	constructor() {
 		super();
-		this.setDescription(message);
 		this.#setErrorColor();
 	}
 
