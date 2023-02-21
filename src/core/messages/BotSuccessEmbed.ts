@@ -6,14 +6,15 @@ export class BotSuccessEmbed extends BotEmbed {
 
 	constructor(message: string) {
 		super();
-		this.setSuccessColor();
 		this.setDescription(message);
+		this.#setSuccessColor();
 	}
 
 	/**
 	 * Set the success color
+	 * @private
 	 */
-	private setSuccessColor() {
+	#setSuccessColor() {
 		this.setColor(<HexColorString>Constants.MESSAGES.COLORS.SUCCESS);
 	}
 

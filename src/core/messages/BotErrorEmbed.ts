@@ -6,14 +6,15 @@ export class BotErrorEmbed extends BotEmbed {
 
 	constructor(message: string) {
 		super();
-		this.setErrorColor();
 		this.setDescription(message);
+		this.#setErrorColor();
 	}
 
 	/**
 	 * Set the error color
+	 * @private
 	 */
-	private setErrorColor() {
+	#setErrorColor() {
 		this.setColor(<HexColorString>Constants.MESSAGES.COLORS.ERROR);
 	}
 
