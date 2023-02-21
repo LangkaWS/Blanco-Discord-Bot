@@ -23,16 +23,17 @@ async function main(): Promise<void> {
 	}
 
 	client.on('ready', async () => {
-
-		const bot = new Bot(client);
-		try {
-			await bot.init();
-			console.log('✔️ Bot initialized successfully');
-		} catch (error) {
-			errorUtils.handleFatalError('Error while initializing bot', error);
-		}
-
+		console.log('ready');
 	});
+
+	const bot = new Bot(client);
+	try {
+		console.log('initializing...');
+		await bot.init();
+		console.log('✔️ Bot initialized successfully');
+	} catch (error) {
+		errorUtils.handleFatalError('Error while initializing bot', error);
+	}
 
 	botClient = client;
 
