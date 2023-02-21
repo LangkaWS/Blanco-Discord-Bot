@@ -2,8 +2,8 @@ import { ChatInputCommandInteraction, SlashCommandSubcommandBuilder } from 'disc
 
 export interface ISubCommand {
 
-	slashCommandSubCommandBuilder: SlashCommandSubcommandBuilder;
+	slashCommandSubcommandBuilder: SlashCommandSubcommandBuilder;
 
-	executeSubCommand: (interaction: ChatInputCommandInteraction) => Promise<void>;
+	executeSubcommand: (interaction: ChatInputCommandInteraction) => Promise<void>;
 
 }
