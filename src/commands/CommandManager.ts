@@ -5,6 +5,8 @@ import { ICommand } from './ICommand';
 import * as errorUtils from '../core/utils/error';
 import { NormalizedObject } from './NormalizedObject';
 import { botClient } from '../core/bot';
+import { BotErrorEmbed } from '../core/messages/BotErrorEmbed';
+import { BotMessageBuilder } from '../core/messages/builders/BotMessageBuilder';
 
 export class CommandManager {
 
@@ -314,18 +316,28 @@ export class CommandManager {
 
 		const commandInfo = CommandManager.commands.get(interaction.commandName);
 		if (!commandInfo) {
-			errorUtils.replyErrorMessage(interaction, 'La commande n\'existe pas');
+			new BotMessageBuilder(interaction)
+				.addEmbed(new BotErrorEmbed().setDescription('La commande n\'existe pas'))
+				.build()
+				.reply(interaction);
 			return;
 		}
 
 		const channelAccess = CommandManager.hasChannelPermissions(commandInfo, interaction.channel as GuildChannel);
 		if (channelAccess.length) {
-			errorUtils.replyErrorMessage(interaction, `Permissions manquantes: ${channelAccess.join(', ')}`);
+			new BotMessageBuilder(interaction)
+				.addEmbed(new BotErrorEmbed().setDescription(`Permissions manquantes: ${channelAccess.join(', ')}`))
+				.build()
+				.reply(interaction);
 			return;
 		}
 
 		// log command usage in db
-		await commandInfo.executeCommand(interaction);
+		if (commandInfo.executeCommand !== undefined) {
+			await commandInfo.executeCommand(interaction);
+		} else if (commandInfo.command !== undefined) {
+			await commandInfo.command.executeCommand(interaction);
+		}
 
 	}
 
