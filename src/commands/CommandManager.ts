@@ -333,7 +333,11 @@ export class CommandManager {
 		}
 
 		// log command usage in db
-		await commandInfo.executeCommand(interaction);
+		if (commandInfo.executeCommand !== undefined) {
+			await commandInfo.executeCommand(interaction);
+		} else if (commandInfo.command !== undefined) {
+			await commandInfo.command.executeCommand(interaction);
+		}
 
 	}
 
